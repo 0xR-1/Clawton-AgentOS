@@ -1,5 +1,10 @@
 # clawton-agentos
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
+[![MCP](https://img.shields.io/badge/Protocol-MCP-blue.svg)](https://modelcontextprotocol.io)
+
+
 **A policy enforcement layer between an AI agent and Binance Agent OS's official MCP server.**
 
 ## Summary
