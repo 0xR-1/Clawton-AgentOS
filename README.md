@@ -31,7 +31,7 @@ The two servers are independent — there is no direct code link between them. T
 - **Per-transaction cap:** $50 per trade or payment
 - **Daily cumulative cap:** $200, tracked in a rolling 24-hour window, shared across both trade and payment intents
 - Any invalid intent (missing fields, non-positive value) is denied
-- Every decision — allowed or denied — is logged onchain when `PRIVATE_KEY` and `RPC_URL` are set in the environment; if they are not set, onchain logging is skipped (logged as `{skipped: true}`) and the policy check still runs normally
+- Every decision — allowed or denied — is logged onchain when `PRIVATE_KEY` and `RPC_URL` are set in the environment of the session running the MCP server; if they are not set, onchain logging is skipped (logged as `{skipped: true}`) and the policy check still runs normally
 
 ## Onchain audit log
 
@@ -46,17 +46,18 @@ This contract was already deployed and independently security-reviewed (Slither,
 - Real OAuth connection to Binance Agent OS's official MCP server (`https://agent.binance.com/mcp/agentic`) from Claude Code, authenticated against a real Binance.com account
 - Live market data retrieval through the connected Binance MCP server (real-time BTCUSDT price and 24h stats)
 - A trade intent ($25 BTCUSDT) evaluated by `check_trade_intent`, approved by policy, and correctly halted by the agent when the Agentic sub-account had no funds — no order was attempted against an empty account
+- **A real trade executed end to end**: with the Agentic sub-account funded with $3, a $2 BNB market buy was approved by `check_trade_intent` and then placed through `binance-mcp-server`, filling for 0.006 BNB at ~$750.52. The resulting balance (0.00599550 BNB plus USDT change) was independently confirmed via a separate balance query against `binance-mcp-server`, not just the agent's own summary of the trade.
 - A payment intent ($15, x402-style) evaluated by `check_payment_intent` and approved by policy
-- **Onchain audit logging, confirmed twice independently**: both the trade-intent check and the payment-intent check produced real Sepolia transactions, and a separate, later `cast logs` query against the deployed contract confirmed the event data matches exactly what was reported at check time
-- Both `clawton-agentos` and `binance-mcp-server` connected successfully as MCP servers from Claude Code (stdio + OAuth-authenticated HTTP transport, respectively)
+- **Onchain audit logging, confirmed independently multiple times**: trade-intent and payment-intent checks produced real Sepolia transactions when `PRIVATE_KEY`/`RPC_URL` were present in the session, and a separate, later `cast logs` query against the deployed contract confirmed the event data matches exactly what was reported at check time
+- Both `clawton-agentos` and `binance-mcp-server` connected successfully as MCP servers from both Claude Code and Claude Desktop
 
 ## Known limitations (honest, current state)
 
-- **No real trade has been executed.** The Agentic sub-account used for testing was never funded, by design — every test up to and including a full policy-check-plus-attempted-trade cycle was carried out with zero funds at risk. The policy check, the MCP integration, and the onchain audit log are all proven; the actual Binance order placement step (`binance-mcp-server`'s trading tools) was intentionally not exercised with real funds.
+- **Onchain logging depends on environment variables being present in the exact session running the MCP server.** `PRIVATE_KEY`/`RPC_URL` must be exported in the same terminal session before launching Claude Code (or set in Claude Desktop's process environment) — a new session or a differently-launched client will silently skip onchain logging (`{skipped: true}`) even though the policy check itself still runs correctly. This was observed directly during testing: one trade execution completed successfully without a prior onchain log because the session lacked these variables, while a subsequent explicit policy check in a properly configured session did produce a real onchain transaction.
 - **Local ledger, not onchain-derived.** The daily cap is tracked in a local JSON file (`spend-log.json`), not read from an onchain cumulative-spend contract. This is a simpler, faster-to-build approach appropriate for this project's scope.
 - **Claude Desktop integration is less stable than Claude Code.** The MCP connection to `clawton-agentos` from Claude Desktop was observed disconnecting unexpectedly at least once during testing, and required re-adding to its config file. Claude Code is the fully verified, stable integration path; Claude Desktop support is best-effort.
 - **The new server code itself is not independently security-audited.** The audit-log contract it writes to was previously reviewed; `policy.js` and `index.js` are unit-tested but have not been through static analysis.
-- **Testnet-only for logging.** All onchain logging targets Ethereum Sepolia. The Binance Agent OS connection itself is necessarily against a real Binance account (Binance Agent OS has no sandbox/testnet), but no funds were transferred or traded.
+- **Testnet-only for logging.** All onchain logging targets Ethereum Sepolia. The Binance Agent OS connection itself is necessarily against a real Binance account (Binance Agent OS has no sandbox/testnet); testing was done with a small, intentionally limited real balance ($3) in the Agentic sub-account.
 
 ## Setup
 
@@ -64,7 +65,7 @@ This contract was already deployed and independently security-reviewed (Slither,
 - Node.js 18+
 - A real Binance.com account (Binance Agent OS has no sandbox/testnet)
 - Claude Code or Claude Desktop, both of which support connecting to multiple MCP servers in one session
-- (Optional, for onchain logging) `PRIVATE_KEY` and `RPC_URL` environment variables for a funded Sepolia wallet, and `cast` (Foundry) installed
+- (Optional, for onchain logging) `PRIVATE_KEY` and `RPC_URL` environment variables for a funded Sepolia wallet, exported in the same session that launches the client, and `cast` (Foundry) installed
 
 ### Install
 ```bash
