@@ -13,6 +13,8 @@ Binance Agent OS gives AI agents direct trading and payment access to a dedicate
 
 clawton-agentos is a local MCP server that sits alongside Binance's official `binance-mcp-server` inside the same AI agent session (tested with both Claude Code and Claude Desktop). Before any trade or x402 payment intent reaches Binance's MCP tools, it is evaluated against a configurable policy — a per-transaction spend cap and a rolling daily cumulative cap — and every decision, allowed or denied, is recorded onchain to a dedicated audit-log smart contract on Ethereum Sepolia.
 
+I had already built and tested this exact idea — a policy layer that gates an AI agent's trades before they execute — in Clawton, against Binance's Spot Testnet. When Binance launched Agent OS with an official MCP server, it was a natural next step: apply the same principle to the real, officially hosted infrastructure instead of a CLI-driven testnet flow.
+
 ## Design principle
 
 **The policy decides, not the agent.** The agent is instructed — and, per its own tool descriptions, expected — to call this server's policy-check tools before calling any Binance MCP execution tool. If the check fails, nothing is forwarded — no trade, no payment — regardless of how the agent frames the request.
@@ -111,7 +113,17 @@ In either client, once both servers are connected:I want to buy $25 of BTCUSDTTh
 
 ## Background
 
-This project builds on patterns and infrastructure from [Clawton](https://github.com/0xR-1/Clawton), an existing personal project applying the same "the policy decides, not the agent" principle to Binance Spot Testnet trading and x402 payments via a Newton Protocol (Rego/WASM) policy engine. The audit-log contract used here for onchain logging is reused, unmodified, from that project. clawton-agentos targets a different, newer surface — Binance's officially hosted Agent OS MCP infrastructure — with a simpler policy engine suited to that scope.
+This project builds on [Clawton](https://github.com/0xR-1/Clawton), an existing, actively developed personal project applying the same "the policy decides, not the agent" principle to Binance Spot Testnet trading and x402 payments via a Newton Protocol (Rego/WASM) policy engine.
+
+Clawton is not a from-scratch build for this hackathon — it predates it, and it has been run and verified end to end, not just written:
+
+- **Security-reviewed**: its three original smart contracts were run through three independent static/symbolic analysis tools (Slither — 101 detectors, clean; Aderyn — 63 detectors, one real finding found and fixed, test-proven with a passing Foundry reinitialization test; Mythril — symbolic execution, no new findings).
+- **Unit-tested**: 26 Foundry tests across its three contracts, with 92%+ line coverage and 100% function coverage on each.
+- **Actually executed on Sepolia**, not just deployed: real, verifiable transactions exist for both an allowed and a denied Binance trade, and both an allowed and a denied x402 payment, each independently inspectable on Etherscan from Clawton's own README.
+- **Price-feed integrity checked**: a live price-anomaly guard (sanity + deviation checks) was added, tested in isolation, and then verified end-to-end by deliberately triggering a false anomaly and confirming both the denial and its onchain audit record.
+
+The audit-log contract this project (`clawton-agentos`) writes to — `ClawtonTradeLog` at `0x86b8ED1803c99768D67a81ed1d1a1F9f8f517269` — is reused unmodified from that already-verified system. clawton-agentos itself targets a different, newer surface (Binance's officially hosted Agent OS MCP infrastructure) with a simpler local policy engine suited to that scope, rather than Clawton's full Rego/WASM evaluation pipeline.
+
 
 ## License
 
